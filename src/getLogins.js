@@ -34,15 +34,15 @@ const iconv = require('iconv-lite');
                 password.data = encodePassword;
             }
 
-            logins.push({
-                hostname: login.hostname,
+            const result = {
+                ...login,
                 username: username.data,
-                password: password.data,
-                timeCreated: login.timeCreated,
-                timeLastUsed: login.timeLastUsed,
-                timePasswordChanged: login.timePasswordChanged,
-                timesUsed: login.timesUsed,
-            });
+                password: password.data
+            }
+            delete result.encryptedUsername
+            delete result.encryptedPassword
+
+            logins.push(result);
         }
 
         return logins;
