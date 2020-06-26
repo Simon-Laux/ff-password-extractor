@@ -1,135 +1,8 @@
-const electron = require('electron');
 const fs = require('fs');
 const path = require('path');
 const SQL = require('sql.js');
 const forge = require('node-forge');
-const Papa = require('papaparse');
 const iconv = require('iconv-lite');
-
-(() => {
-    const paths = getDefaultProfileDirectories();
-    const profiles = document.querySelector('#profiles');
-    let setSelected = false;
-    for (const p of paths) {
-        const opt = document.createElement('option');
-        opt.value = p;
-        opt.text = p;
-        if (!setSelected) {
-            setSelected = true;
-            opt.selected = true;
-        }
-        profiles.appendChild(opt);
-    }
-
-    if (setSelected) {
-        document.querySelector('#profile-path').innerHTML = paths[0];
-    }
-
-    profiles.addEventListener('change', () => {
-        document.querySelector('#profile-path').innerHTML = document.querySelector('#profiles').value;
-    });
-
-    const directoryPicker = document.querySelector('#directory-picker');
-    const chooseProfile = document.querySelector('#choose-profile');
-    chooseProfile.addEventListener('click', () => {
-        directoryPicker.click();
-    });
-
-    directoryPicker.addEventListener('change', () => {
-        const picker = document.querySelector('#directory-picker');
-        if (picker.files && picker.files.length) {
-            document.querySelector('#profile-path').innerHTML = picker.files[0].path;
-            document.querySelector('#profiles').children[0].selected = true;
-        }
-    });
-
-    document.querySelector('#bitwarden').addEventListener('click', () => {
-        electron.shell.openExternal('https://bitwarden.com/?ref=ff-password-exporter');
-    });
-
-    const exportBtn = document.querySelector('#export');
-    exportBtn.addEventListener('click', async () => {
-        let profileDirectory = document.querySelector('#profile-path').innerHTML;
-        if (profileDirectory == null || profileDirectory === '') {
-            showAlert('error', 'You must select a profile directory.');
-            return;
-        }
-        try {
-            const logins = getLogins(profileDirectory, document.querySelector('#master-password').value);
-            electron.remote.dialog.showSaveDialog({
-                defaultPath: makeFileName(),
-                filters: [
-                    { name: 'CSV', extensions: ['csv'] },
-                    { name: 'JSON', extensions: ['json'] }
-                ]
-            }, (filename) => {
-                const data = path.extname(filename) === '.json' ? JSON.stringify(logins) : Papa.unparse(logins);
-                fs.writeFile(filename, data, 'utf-8', (e) => {
-                    if (e) {
-                        showAlert('error', e);
-                    }
-                });
-            });
-        } catch (e) {
-            showAlert('error', e);
-        }
-    });
-
-    function showAlert(type, message) {
-        electron.remote.dialog.showMessageBox(electron.remote.getCurrentWindow(), {
-            type: type,
-            detail: message.toString(),
-            buttons: ['Ok'],
-            noLink: true
-        });
-    }
-
-    function getDefaultProfileDirectories() {
-        let defaultProfilePaths = [];
-        const appData = electron.remote.app.getPath('appData');
-        if (process.platform === 'win32') {
-            defaultProfilePaths.push(path.join(appData, 'Mozilla/Firefox/Profiles'));
-        } else if (process.platform === 'darwin') {
-            defaultProfilePaths.push(path.join(appData, 'Firefox/Profiles'));
-            defaultProfilePaths.push(path.join(appData, '../Mozilla/Firefox/Profiles'));
-        } else if (process.platform === 'linux') {
-            defaultProfilePaths.push(path.join(appData, '../.mozilla/firefox'));
-        }
-
-        let profiles = [];
-        for (const p of defaultProfilePaths) {
-            if (!fs.existsSync(p)) {
-                continue;
-            }
-            const directories = fs.readdirSync(p).map(name => path.join(p, name))
-                .filter((s) => {
-                    return fs.lstatSync(s).isDirectory() && s.indexOf('Crash Reports') === -1 &&
-                        s.indexOf('Pending Pings') === -1;
-                });
-            if (directories.length) {
-                profiles = profiles.concat(directories);
-            }
-        }
-
-        return profiles;
-    }
-
-    function makeFileName() {
-        const now = new Date();
-        const dateString =
-            now.getFullYear() + '' + padNumber(now.getMonth() + 1, 2) + '' + padNumber(now.getDate(), 2) +
-            padNumber(now.getHours(), 2) + '' + padNumber(now.getMinutes(), 2) +
-            padNumber(now.getSeconds(), 2);
-
-        return 'firefox_logins_' + dateString;
-    }
-
-    function padNumber(num, width, padCharacter) {
-        padCharacter = padCharacter || '0';
-        const numString = num.toString();
-        return numString.length >= width ? numString :
-            new Array(width - numString.length + 1).join(padCharacter) + numString;
-    }
 
     function getLogins(profileDirectory, masterPassword) {
         const key = getKey(profileDirectory, masterPassword);
@@ -302,4 +175,6 @@ const iconv = require('iconv-lite');
         }
         return arr;
     }
-})();
+
+
+    module.exports = getLogins;
